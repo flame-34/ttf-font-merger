@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TTF 字体合并工具</title>
+<title data-i18n="title">TTF 字体合并工具</title>
 <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
 <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -12,11 +12,17 @@
   <div class="brand">
     <span class="logo"><img src="/static/icon.svg" alt="TTF" width="36" height="36"></span>
     <div>
-      <h1>字体合并工具</h1>
-      <p>选择主体字体 → 用多个补丁字体分别补齐不同语言的字形</p>
+      <h1 data-i18n="appName">字体合并工具</h1>
+      <p data-i18n="tagline">选择主体字体 → 用多个补丁字体分别补齐不同语言的字形</p>
     </div>
   </div>
-  <div class="status" id="serverStatus"><span class="dot"></span>就绪</div>
+  <div class="topbar-right">
+    <div class="lang-switch" id="langSwitch">
+      <button class="lang-btn" data-lang="zh">中文</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+    </div>
+    <div class="status" id="serverStatus"><span class="dot"></span><span data-i18n="ready">就绪</span></div>
+  </div>
 </header>
 
 <main class="wrap">
@@ -24,15 +30,15 @@
     <div class="panel" id="mainPanel">
       <div class="panel-head">
         <span class="step-no">1</span>
-        <h2>主体字体</h2>
-        <span class="panel-sub" id="mainSub">作为合并的基础</span>
+        <h2 data-i18n="masterFont">主体字体</h2>
+        <span class="panel-sub" id="mainSub" data-i18n="masterHint">作为合并的基础</span>
       </div>
       <label class="dropzone" id="mainDrop">
         <input type="file" id="mainFile" accept=".ttf,.otf,.ttc" hidden>
         <div class="dz-inner">
           <div class="dz-icon">＋</div>
-          <div class="dz-text">选择或拖入 <b>主体 TTF</b></div>
-          <div class="dz-hint">支持 .ttf / .otf / .ttc</div>
+          <div class="dz-text" data-i18n-html="mainDrop">选择或拖入 <b>主体 TTF</b></div>
+          <div class="dz-hint" data-i18n="fileTypes">支持 .ttf / .otf / .ttc</div>
         </div>
       </label>
       <div class="meta hidden" id="mainMeta"></div>
@@ -41,14 +47,14 @@
     <div class="panel" id="patchPanel">
       <div class="panel-head">
         <span class="step-no">2</span>
-        <h2>补丁字体</h2>
-        <span class="panel-sub" id="patchSub">从中抽取缺失字形</span>
+        <h2 data-i18n="patchFonts">补丁字体</h2>
+        <span class="panel-sub" id="patchSub" data-i18n="patchHint">可添加多个，分别选择区块</span>
       </div>
       <div class="patch-tabs" id="patchTabs"></div>
       <label class="dropzone dz-compact" id="patchDrop">
         <input type="file" id="patchFile" accept=".ttf,.otf,.ttc" hidden multiple>
         <div class="dz-inner compact">
-          <span class="dz-text">＋ 添加补丁字体（可多选）</span>
+          <span class="dz-text" data-i18n="addPatchFonts">＋ 添加补丁字体（可多选）</span>
         </div>
       </label>
       <div class="meta hidden" id="patchMeta"></div>
@@ -57,49 +63,50 @@
 
   <section class="panel blocks-panel">
     <div class="panel-head">
-      <h2>Unicode 区块覆盖</h2><span class="panel-sub" id="tableSub">为当前补丁选择要合并的区块</span>
+      <h2 data-i18n="blockCoverage">Unicode 区块覆盖</h2><span class="panel-sub" id="tableSub" data-i18n="selectBlocks">为当前补丁选择要合并的区块</span>
       <div class="filters">
-        <input type="search" id="searchBox" placeholder="搜索区块 / 语言 / 文字…" class="search">
-        <label class="toggle"><input type="checkbox" id="onlyFillable"><span>仅显示可合并区块</span></label>
-        <select id="catFilter" class="select"><option value="">全部分类</option></select>
-        <button class="btn ghost" id="checkAll" title="勾选当前补丁提供的全部区块">勾选当前可合并</button>
+        <input type="search" id="searchBox" data-i18n-ph="searchPlaceholder" placeholder="搜索区块 / 语言 / 文字…" class="search">
+        <label class="toggle"><input type="checkbox" id="onlyFillable"><span data-i18n="onlyMergeable">仅显示可合并区块</span></label>
+        <select id="catFilter" class="select"><option value="" data-i18n="allCategories">全部分类</option></select>
+        <button class="btn ghost" id="checkAll" data-i18n="checkAllMergeable" title="勾选当前补丁提供的全部区块">勾选当前可合并</button>
       </div>
     </div>
     <div class="legend">
-      <span class="lg"><i class="sw missing"></i>主体缺失</span>
-      <span class="lg"><i class="sw present"></i>主体已含</span>
-      <span class="lg"><i class="sw fill"></i>补丁提供</span>
-      <span class="lg dim" id="summaryBar">载入主体字体后显示覆盖情况</span>
+      <span class="lg"><i class="sw missing"></i><span data-i18n="legendMissing">主体缺失</span></span>
+      <span class="lg"><i class="sw present"></i><span data-i18n="legendPresent">主体已含</span></span>
+      <span class="lg"><i class="sw fill"></i><span data-i18n="legendFill">补丁提供</span></span>
+      <span class="lg dim" id="summaryBar" data-i18n="summaryEmpty">载入主体字体后显示覆盖情况</span>
     </div>
     <div class="table-scroll">
       <table class="blocks" id="blockTable">
         <thead>
           <tr>
             <th class="c-check"><input type="checkbox" id="headCheck" title="全选/取消当前列表中的可补丁项"></th>
-            <th>区块</th>
-            <th>语言 / 文字</th>
-            <th class="c-range">码位范围</th>
-            <th class="c-cov">主体覆盖</th>
-            <th class="c-fill">补丁提供</th>
+            <th data-i18n="colBlock">区块</th>
+            <th data-i18n="colLang">语言 / 文字</th>
+            <th class="c-range" data-i18n="colRange">码位范围</th>
+            <th class="c-cov" data-i18n="colCoverage">主体覆盖</th>
+            <th class="c-fill" data-i18n="colSupply">补丁提供</th>
           </tr>
         </thead>
         <tbody id="blockBody">
-          <tr class="empty-row"><td colspan="6">请先载入主体字体。</td></tr>
+          <tr class="empty-row"><td colspan="6" data-i18n="emptyLoadFirst">请先载入主体字体。</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <section class="merge-bar" id="mergeBar">
-    <label class="toggle ow-toggle"><input type="checkbox" id="overwriteMain" checked><span>覆盖主体已有字形</span></label>
+    <label class="toggle ow-toggle"><input type="checkbox" id="overwriteMain" checked><span data-i18n="overwriteExisting">覆盖主体已有字形</span></label>
     <div class="merge-info">
-      <b id="selPatches">0</b> 个补丁 · 已选 <b id="selBlocks">0</b> 个区块 · 将合并 <b id="selCps">0</b> 个码位
+      <b id="selPatches">0</b> <span data-i18n="patches">个补丁</span> · <span data-i18n="selectedBlocks">已选</span> <b id="selBlocks">0</b> <span data-i18n="blocksUnit">个区块</span> · <span data-i18n="willMerge">将合并</span> <b id="selCps">0</b> <span data-i18n="codepointsUnit">个码位</span>
     </div>
-    <button class="btn primary" id="mergeBtn" disabled>合并并下载</button>
+    <button class="btn primary" id="mergeBtn" disabled data-i18n="mergeBtn">合并并下载</button>
   </section>
 </main>
 
 <div class="toast" id="toast"></div>
+<script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

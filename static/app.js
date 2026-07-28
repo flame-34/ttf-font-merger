@@ -1,5 +1,6 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
+
 const state = {
   mainToken: null,
   mainName: null,
@@ -9,12 +10,13 @@ const state = {
   overwriteMain: true,
 };
 
+// ---------- helpers ----------
 function fmt(n){ return (n || 0).toLocaleString("en-US"); }
 function hex4(cp){ return "U+" + cp.toString(16).toUpperCase().padStart(4, "0"); }
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
 function toast(msg, isErr){
-  const t = $("toast"); t.textContent = msg; t.className = "toast show" + (isErr ? " err" : "");
-  clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, 3200);
+  const el = $("toast"); el.textContent = msg; el.className = "toast show" + (isErr ? " err" : "");
+  clearTimeout(toast._t); toast._t = setTimeout(() => { el.className = "toast"; }, 3200);
 }
 function toB64(buf){
   let s = ""; const bytes = new Uint8Array(buf);
@@ -23,13 +25,15 @@ function toB64(buf){
 }
 async function postJSON(url, obj){
   const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
-  let j; try { j = await r.json(); } catch (e) { throw new Error("服务器返回异常"); }
-  if (!j.ok) throw new Error(j.error || "请求失败");
+  let j; try { j = await r.json(); } catch (e) { throw new Error(t("serverError")); }
+  if (!j.ok) throw new Error(j.error || t("requestFailed"));
   return j;
 }
 function ap(){ return state.activePatch >= 0 ? state.patches[state.activePatch] : null; }
 function activeSupply(){ const p = ap(); return p ? p.supply : {}; }
 function activeSelection(){ const p = ap(); return p ? p.selection : new Set(); }
+function setStatus(text){ $("serverStatus").innerHTML = '<span class="dot"></span>' + esc(text); }
+function setBusy(){ $("serverStatus").innerHTML = '<span class="dot" style="background:#b45309;box-shadow:0 0 0 3px var(--amber-soft)"></span>' + esc(t("parsing")); }
 
 function wireDrop(dropEl, inputEl, handler){
   dropEl.addEventListener("click", () => inputEl.click());
@@ -42,15 +46,15 @@ function readFile(file){
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(new Error("读取文件失败"));
+    fr.onerror = () => reject(new Error(t("readFileFailed")));
     fr.readAsArrayBuffer(file);
   });
 }
 
-// ---- main font ----
+// ---------- main font ----------
 async function loadMain(files){
   const file = files[0];
-  $("serverStatus").innerHTML = '<span class="dot" style="background:#b45309;box-shadow:0 0 0 3px var(--amber-soft)"></span>解析中…';
+  setBusy();
   try {
     const buf = await readFile(file);
     const j = await postJSON("/api/analyze", { data: toB64(buf), filename: file.name });
@@ -63,11 +67,11 @@ async function loadMain(files){
     renderPatchTabs();
     renderBlocks();
     updateMergeBar();
-    toast("主体字体已载入：" + j.name);
+    toast(t("masterLoaded") + j.name);
   } catch (e) {
     toast(e.message, true);
   } finally {
-    $("serverStatus").innerHTML = '<span class="dot"></span>就绪';
+    setStatus(t("ready"));
   }
 }
 function renderMainMeta(j, filename){
@@ -75,19 +79,20 @@ function renderMainMeta(j, filename){
   m.className = "meta";
   m.innerHTML =
     '<div class="v tname"></div>' +
-    '<div class="k">UPEM</div><div class="v">' + fmt(j.upem) + '</div>' +
-    '<div class="k">字形数</div><div class="v">' + fmt(j.numGlyphs) + '</div>' +
-    '<div class="k">已覆盖区块</div><div class="v">' + fmt(j.coveredBlocks) + '</div>' +
+    '<div class="k">' + t("upem") + '</div><div class="v">' + fmt(j.upem) + '</div>' +
+    '<div class="k">' + t("numGlyphs") + '</div><div class="v">' + fmt(j.numGlyphs) + '</div>' +
+    '<div class="k">' + t("coveredBlocks") + '</div><div class="v">' + fmt(j.coveredBlocks) + '</div>' +
     '<div class="fname"></div>';
   m.querySelector(".tname").textContent = j.name;
   m.querySelector(".fname").textContent = filename;
 }
 
-// ---- patch fonts (multiple) ----
+// ---------- patch fonts ----------
 async function addPatches(files){
-  if (!state.mainToken) { toast("请先载入主体字体", true); return; }
+  if (!state.mainToken) { toast(t("needMasterFirst"), true); return; }
   const arr = Array.from(files);
-  $("serverStatus").innerHTML = '<span class="dot" style="background:#b45309;box-shadow:0 0 0 3px var(--amber-soft)"></span>解析补丁 (' + arr.length + ')…';
+  setBusy();
+  $("serverStatus").innerHTML = '<span class="dot" style="background:#b45309;box-shadow:0 0 0 3px var(--amber-soft)"></span>' + esc(t("parsingPatches") + " (" + arr.length + ")…");
   try {
     let added = 0;
     for (const file of arr){
@@ -104,39 +109,39 @@ async function addPatches(files){
     renderPatchMeta();
     renderBlocks();
     updateMergeBar();
-    toast("已添加 " + added + " 个补丁字体，共 " + state.patches.length + " 个");
+    toast(t("patchesAdded", { n: added, total: state.patches.length }));
   } catch (e) {
     toast(e.message, true);
   } finally {
-    $("serverStatus").innerHTML = '<span class="dot"></span>就绪';
+    setStatus(t("ready"));
   }
 }
 function renderPatchTabs(){
   const el = $("patchTabs");
-  if (!state.patches.length){ el.innerHTML = '<span class="ptab-empty">还没有补丁字体，下方添加</span>'; return; }
+  if (!state.patches.length){ el.innerHTML = '<span class="ptab-empty">' + esc(t("noPatchesYet")) + "</span>"; return; }
   el.innerHTML = state.patches.map((p, i) => {
     const cls = (i === state.activePatch ? "ptab active" : "ptab") + (p.selection.size ? " has-sel" : "");
     return '<div class="' + cls + '" data-idx="' + i + '" title="' + esc(p.name) + '">' +
       '<span class="ptab-dot"></span>' +
       '<span class="ptab-name">' + esc(p.name) + '</span>' +
-      (p.selection.size ? '<span class="ptab-badge">' + p.selection.size + '</span>' : '') +
-      '<span class="ptab-rm" data-rm="' + i + '" title="移除">×</span></div>';
+      (p.selection.size ? '<span class="ptab-badge">' + p.selection.size + '</span>' : "") +
+      '<span class="ptab-rm" data-rm="' + i + '" title="' + esc(t("remove")) + '">×</span></div>';
   }).join("");
 }
 function renderPatchMeta(){
   const m = $("patchMeta");
   const p = ap();
-  if (!p){ m.className = "meta hidden"; $("tableSub").textContent = "为当前补丁选择要合并的区块"; return; }
+  if (!p){ m.className = "meta hidden"; $("tableSub").textContent = t("selectBlocks"); return; }
   m.className = "meta";
   m.innerHTML =
     '<div class="v tname"></div>' +
-    '<div class="k">UPEM</div><div class="v">' + fmt(p.upem) + '</div>' +
-    '<div class="k">字形数</div><div class="v">' + fmt(p.numGlyphs) + '</div>' +
-    '<div class="k">可提供码位</div><div class="v" style="color:var(--amber)">' + fmt(p.fillable + p.replaceable) + '</div>' +
+    '<div class="k">' + t("upem") + '</div><div class="v">' + fmt(p.upem) + '</div>' +
+    '<div class="k">' + t("numGlyphs") + '</div><div class="v">' + fmt(p.numGlyphs) + '</div>' +
+    '<div class="k">' + t("supplyCps") + '</div><div class="v" style="color:var(--amber)">' + fmt(p.fillable + p.replaceable) + '</div>' +
     '<div class="fname"></div>';
   m.querySelector(".tname").textContent = p.name;
-  m.querySelector(".fname").textContent = "补丁 " + (state.activePatch + 1) + " / " + state.patches.length;
-  $("tableSub").textContent = "为「" + p.name + "」选择要合并的区块";
+  m.querySelector(".fname").textContent = t("patchIndex", { n: state.activePatch + 1, total: state.patches.length });
+  $("tableSub").textContent = t("selectBlocksFor", { name: p.name });
 }
 function onPatchTabClick(e){
   const rm = e.target.closest(".ptab-rm");
@@ -153,7 +158,7 @@ function removePatch(idx){
   renderPatchTabs(); renderPatchMeta(); renderBlocks(); updateMergeBar();
 }
 
-// ---- block table ----
+// ---------- block table ----------
 function visibleBlocks(){
   const q = $("searchBox").value.trim().toLowerCase();
   const only = $("onlyFillable").checked;
@@ -194,22 +199,22 @@ function rowHTML(b){
     '<td class="lang">' + esc(b.lang) + "</td>" +
     '<td class="c-range"><span class="range">' + hex4(b.start) + "–" + hex4(b.end) + "</span></td>" +
     '<td class="c-cov"><div class="cov-cell"><div class="bar"><i style="width:' + pct.toFixed(1) + "%\"></i></div>" +
-    '<span class="badge ' + b.status + '">' + (b.status === "missing" ? "缺失" : "已含") + "</span></div></td>" +
+    '<span class="badge ' + b.status + '">' + (b.status === "missing" ? t("missingBadge") : t("presentBadge")) + "</span></div></td>" +
     '<td class="c-fill"><span class="fill-num ' + (patchable ? "" : "zero") + '">' + fmt(fill) + "</span></td>" +
     "</tr>";
 }
 function renderBlocks(){
   const body = $("blockBody");
   if (!state.blocks.length){
-    body.innerHTML = '<tr class="empty-row"><td colspan="6">请先载入主体字体。</td></tr>';
-    $("summaryBar").textContent = "载入主体字体后显示覆盖情况";
+    body.innerHTML = '<tr class="empty-row"><td colspan="6">' + esc(t("emptyLoadFirst")) + "</td></tr>";
+    $("summaryBar").textContent = t("summaryEmpty");
     populateCats([]);
     return;
   }
   const rows = visibleBlocks();
   body.innerHTML = rows.length
     ? rows.map(rowHTML).join("")
-    : '<tr class="empty-row"><td colspan="6">没有匹配的区块。</td></tr>';
+    : '<tr class="empty-row"><td colspan="6">' + esc(t("noMatch")) + "</td></tr>";
   populateCats(state.blocks);
   const missing = state.blocks.filter(b => b.status === "missing").length;
   const present = state.blocks.length - missing;
@@ -217,16 +222,16 @@ function renderBlocks(){
   if (ap()){
     const supply = activeSupply();
     const patchable = state.blocks.filter(b => (supply[b.name] || 0) > 0).length;
-    extra = " · 当前补丁可合并 " + patchable;
+    extra = " · " + t("currentMergeable") + " " + patchable;
   }
-  $("summaryBar").textContent = "共 " + state.blocks.length + " 区块：已含 " + present + "，缺失 " + missing + extra;
+  $("summaryBar").textContent = t("summaryTotal", { total: state.blocks.length, present, missing }) + extra;
   syncHead();
 }
 function populateCats(blocks){
   const sel = $("catFilter");
   const cur = sel.value;
   const cats = Array.from(new Set(blocks.map(b => b.cat))).sort();
-  sel.innerHTML = '<option value="">全部分类</option>' + cats.map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>").join("");
+  sel.innerHTML = '<option value="">' + esc(t("allCategories")) + "</option>" + cats.map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>").join("");
   sel.value = cur;
 }
 function onTableClick(e){
@@ -262,7 +267,7 @@ function headToggle(e){
   updateMergeBar();
 }
 function checkAllMissing(){
-  const p = ap(); if (!p){ toast("请先载入补丁字体", true); return; }
+  const p = ap(); if (!p){ toast(t("needPatchFirst"), true); return; }
   const supply = activeSupply();
   let n = 0;
   state.blocks.forEach(b => {
@@ -271,10 +276,10 @@ function checkAllMissing(){
   renderBlocks();
   renderPatchTabs();
   updateMergeBar();
-  toast("已勾选 " + n + " 个可合并区块");
+  toast(t("checkedN", { n }));
 }
 
-// ---- merge bar ----
+// ---------- merge ----------
 function updateMergeBar(){
   let cps = 0, selBlocks = 0;
   state.patches.forEach(p => {
@@ -292,14 +297,14 @@ async function doMerge(){
   const patches = state.patches.filter(p => p.selection.size).map(p => ({ token: p.token, blocks: Array.from(p.selection) }));
   if (!patches.length) return;
   const btn = $("mergeBtn");
-  btn.disabled = true; btn.textContent = "合并中…";
+  btn.disabled = true; btn.textContent = t("merging");
   try {
     const j = await postJSON("/api/merge", { mainToken: state.mainToken, patches, overwriteMain: state.overwriteMain });
     await saveResult(j);
   } catch (e) {
     toast(e.message, true);
   } finally {
-    btn.textContent = "合并并下载";
+    btn.textContent = t("mergeBtn");
     updateMergeBar();
   }
 }
@@ -307,12 +312,12 @@ function isDesktop(){
   return !!(window.pywebview && window.pywebview.api && window.pywebview.api.save_font);
 }
 async function saveResult(j){
-  const msg = "已合并 " + fmt(j.mergedCodepoints) + " 个码位 / " + fmt(j.mergedGlyphs) + " 个字形";
+  const msg = t("mergedCpsGlyphs", { cps: fmt(j.mergedCodepoints), glyphs: fmt(j.mergedGlyphs) });
   if (isDesktop()){
     const r = await window.pywebview.api.save_font(j.data, j.filename);
-    if (r && r.ok) toast(msg + "，已保存：" + r.path);
-    else if (r && r.canceled) toast("已取消保存（合并已完成）");
-    else toast((r && r.error) || "保存失败", true);
+    if (r && r.ok) toast(msg + t("savedTo") + r.path);
+    else if (r && r.canceled) toast(t("saveCanceled"));
+    else toast((r && r.error) || t("saveFailed"), true);
     return;
   }
   const bin = atob(j.data);
@@ -322,10 +327,21 @@ async function saveResult(j){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = j.filename; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-  toast(msg + "，开始下载");
+  toast(msg + t("downloadStarting"));
 }
 
-// ---- init ----
+/** Re-render dynamic content when language changes. */
+function onLangChange(){
+  if (state.mainToken) { renderMainMeta; } // meta uses j/filename, only labels re-translate on next render
+  renderPatchTabs();
+  renderPatchMeta();
+  renderBlocks();
+  updateMergeBar();
+  setStatus(t("ready"));
+}
+
+// ---------- init ----------
+initLang();
 wireDrop($("mainDrop"), $("mainFile"), loadMain);
 wireDrop($("patchDrop"), $("patchFile"), addPatches);
 $("searchBox").addEventListener("input", renderBlocks);
