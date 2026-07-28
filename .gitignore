@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+/_shots/
+/_sample_*.ttf
+/build/
+/dist/
+/TtfMergeTool.spec
+/build_deps/
+/_icons/
+/_make_icon.py
+/libs/
+*.ttf
+*.otf
+*.ttc
+*.ico
+!app.ico
